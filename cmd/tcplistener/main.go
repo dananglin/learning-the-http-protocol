@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strings"
 )
 
-const messagesFilepath string = "messages.txt"
+// const messagesFilepath string = "messages.txt"
 
 func main() {
 	if err := run(); err != nil {
@@ -19,27 +20,38 @@ func main() {
 }
 
 func run() error {
-	var err error
-
-	file, err := os.Open(messagesFilepath)
+	address := "localhost:42069"
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
-		return fmt.Errorf(
-			"error opening %s: %w",
-			messagesFilepath,
-			err,
-		)
+		return fmt.Errorf("error creating the listener: %w", err)
 	}
+	defer listener.Close()
 
-	linesChan := getLinesChannel(file)
+	fmt.Println("Server is listening on:", address)
 
-Outer:
 	for {
-		line, ok := <-linesChan
-		if !ok {
-			break Outer
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Printf("CONNECTION ERROR: %v.\n", err)
+
+			break
 		}
 
-		fmt.Println("read:", line)
+		fmt.Println("Connection accepted.")
+
+		linesChan := getLinesChannel(conn)
+
+	ReadLines:
+		for {
+			line, ok := <-linesChan
+			if !ok {
+				break ReadLines
+			}
+
+			fmt.Println(line)
+		}
+
+		fmt.Println("Connection closed.")
 	}
 
 	return nil
@@ -61,6 +73,10 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 			_, err = f.Read(data)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
+					if currentLine != "" {
+						linesChan <- currentLine
+					}
+
 					break
 				} else {
 					linesChan <- fmt.Sprintf("ERROR: %v", err)
