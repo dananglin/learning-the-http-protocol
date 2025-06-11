@@ -29,28 +29,56 @@ func run() error {
 			err,
 		)
 	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			fmt.Printf("WARNING: error closing file: %v.\n", err)
+
+	linesChan := getLinesChannel(file)
+
+Outer:
+	for {
+		line, ok := <-linesChan
+		if !ok {
+			break Outer
 		}
-	}()
 
-	currentLine := ""
-
-	for !errors.Is(err, io.EOF) {
-		data := make([]byte, 8)
-
-		_, err = file.Read(data)
-
-		parts := strings.Split(string(data), "\n")
-
-		currentLine += parts[0]
-
-		if len(parts) == 2 {
-			fmt.Println("read:", currentLine)
-			currentLine = parts[1]
-		}
+		fmt.Println("read:", line)
 	}
 
 	return nil
+}
+
+func getLinesChannel(f io.ReadCloser) <-chan string {
+	linesChan := make(chan string)
+
+	go func() {
+		defer close(linesChan)
+		defer f.Close()
+
+		var err error
+		currentLine := ""
+		var data []byte
+
+		for {
+			data = make([]byte, 8)
+			_, err = f.Read(data)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				} else {
+					linesChan <- fmt.Sprintf("ERROR: %v", err)
+
+					break
+				}
+			}
+
+			parts := strings.Split(string(data), "\n")
+
+			currentLine += parts[0]
+
+			if len(parts) == 2 {
+				linesChan <- currentLine
+				currentLine = parts[1]
+			}
+		}
+	}()
+
+	return linesChan
 }
