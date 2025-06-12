@@ -44,14 +44,14 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 func parseRequestLine(req string) (RequestLine, error) {
 	parts := strings.SplitN(req, "\r\n", 2)
 	if len(parts) != 2 {
-		return RequestLine{}, fmt.Errorf("received an unexpected number of parts after splitting the REQUEST: want: 2, got: %d", len(parts))
+		return RequestLine{}, requestPartsError{len(parts)}
 	}
 
 	reqLine := parts[0]
 
 	parts = strings.Split(reqLine, " ")
 	if len(parts) != 3 {
-		return RequestLine{}, fmt.Errorf("received an unexpected number of parts after splitting the REQUEST LINE: want: 3, got: %d", len(parts))
+		return RequestLine{}, requestLinePartsError{len(parts)}
 	}
 
 	method, requestTarget, httpVersion := parts[0], parts[1], parts[2]
@@ -59,13 +59,16 @@ func parseRequestLine(req string) (RequestLine, error) {
 	// Verify that the method is all caps
 	for _, letter := range method {
 		if !unicode.IsUpper(letter) {
-			return RequestLine{}, fmt.Errorf("the received HTTP method %q is incorrectly formatted", method)
+			return RequestLine{}, methodFormatError{method}
 		}
 	}
 
 	// Verify that the HTTP Version is literally HTTP/1.1
 	if httpVersion != supportedHttpVersion {
-		return RequestLine{}, fmt.Errorf("received an unsupported HTTP version in the request: want: %q, got %q", supportedHttpVersion, httpVersion)
+		return RequestLine{}, unsupportedHTTPVersionError{
+			supportedVersion: supportedHttpVersion,
+			gotVersion:       httpVersion,
+		}
 	}
 
 	return RequestLine{

@@ -85,17 +85,24 @@ func TestRequestLineParse(t *testing.T) {
 
 	// Test: Invalid number of parts in request line
 	_, err = RequestFromReader(strings.NewReader("/coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"))
-	require.Error(t, err)
+	require.ErrorIs(t, err, requestLinePartsError{2})
 
 	// Test: Invalid HTTP Version
 	_, err = RequestFromReader(strings.NewReader("GET /coffee HTTP/2.0\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"))
-	require.Error(t, err)
+	require.ErrorIs(
+		t,
+		err,
+		unsupportedHTTPVersionError{
+			supportedVersion: supportedHttpVersion,
+			gotVersion:       "HTTP/2.0",
+		},
+	)
 
 	// Test: Invalid method.
 	_, err = RequestFromReader(strings.NewReader("Get /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"))
-	require.Error(t, err)
+	require.ErrorIs(t, err, methodFormatError{"Get"})
 
 	// Test: The request line is out of order
 	_, err = RequestFromReader(strings.NewReader("HTTP/1.1 GET /coffee\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"))
-	require.Error(t, err)
+	require.ErrorIs(t, err, methodFormatError{"HTTP/1.1"})
 }
