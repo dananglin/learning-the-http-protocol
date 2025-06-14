@@ -10,7 +10,7 @@ import (
 
 const (
 	supportedHttpVersion string = "HTTP/1.1"
-	newLineChars         string = "\r\n"
+	crlf                 string = "\r\n"
 	bufferSize           int    = 8
 )
 
@@ -111,11 +111,11 @@ type RequestLine struct {
 // returns the parsed request line and the size (in bytes) of the original request line that
 // was parsed.
 func parseRequestLine(req string) (RequestLine, int, error) {
-	if !strings.Contains(req, newLineChars) {
+	if !strings.Contains(req, crlf) {
 		return RequestLine{}, 0, nil
 	}
 
-	parts := strings.SplitN(req, newLineChars, 2)
+	parts := strings.SplitN(req, crlf, 2)
 	if len(parts) != 2 {
 		return RequestLine{}, 0, requestPartsError{len(parts)}
 	}
@@ -149,7 +149,7 @@ func parseRequestLine(req string) (RequestLine, int, error) {
 			RequestTarget: requestTarget,
 			HTTPVersion:   "1.1",
 		},
-		len([]byte(reqLine)) + len([]byte(newLineChars)),
+		len([]byte(reqLine)) + len([]byte(crlf)),
 		nil
 }
 
