@@ -10,6 +10,7 @@ import (
 
 const (
 	supportedHttpVersion string = "HTTP/1.1"
+	newLineChars         string = "\r\n"
 	bufferSize           int    = 8
 )
 
@@ -75,7 +76,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 func (r *Request) parse(data []byte) (int, error) {
 	if r.state == requestStateInitialiased {
-		fmt.Println("Data to parse:", string(data))
 		parsed, sizeOfParsed, err := parseRequestLine(string(data))
 		if err != nil {
 			return 0, fmt.Errorf("request parsing error: %w", err)
@@ -111,12 +111,11 @@ type RequestLine struct {
 // returns the parsed request line and the size (in bytes) of the original request line that
 // was parsed.
 func parseRequestLine(req string) (RequestLine, int, error) {
-	const separator string = "\r\n"
-	if !strings.Contains(req, separator) {
+	if !strings.Contains(req, newLineChars) {
 		return RequestLine{}, 0, nil
 	}
 
-	parts := strings.SplitN(req, separator, 2)
+	parts := strings.SplitN(req, newLineChars, 2)
 	if len(parts) != 2 {
 		return RequestLine{}, 0, requestPartsError{len(parts)}
 	}
@@ -150,7 +149,7 @@ func parseRequestLine(req string) (RequestLine, int, error) {
 			RequestTarget: requestTarget,
 			HTTPVersion:   "1.1",
 		},
-		len([]byte(reqLine)) + len([]byte(separator)),
+		len([]byte(reqLine)) + len([]byte(newLineChars)),
 		nil
 }
 
