@@ -43,57 +43,25 @@ func run() error {
 			break
 		}
 
-		fmt.Printf(
-			"Request line:\n- Method: %s\n- Target: %s\n- Version: %s\n\n",
+		result := fmt.Sprintf(
+			"Request line:\n- Method: %s\n- Target: %s\n- Version: %s\n",
 			req.RequestLine.Method,
 			req.RequestLine.RequestTarget,
 			req.RequestLine.HTTPVersion,
 		)
+
+		if len(req.Headers) > 0 {
+			result += "Headers:\n"
+
+			for key, value := range req.Headers {
+				result += fmt.Sprintf("- %s: %s\n", key, value)
+			}
+		}
+
+		fmt.Println(result)
 
 		fmt.Println("Connection closed.")
 	}
 
 	return nil
 }
-
-//func getLinesChannel(f io.ReadCloser) <-chan string {
-//	linesChan := make(chan string)
-//
-//	go func() {
-//		defer close(linesChan)
-//		defer f.Close()
-//
-//		var err error
-//		currentLine := ""
-//		var data []byte
-//
-//		for {
-//			data = make([]byte, 8)
-//			_, err = f.Read(data)
-//			if err != nil {
-//				if errors.Is(err, io.EOF) {
-//					if currentLine != "" {
-//						linesChan <- currentLine
-//					}
-//
-//					break
-//				} else {
-//					linesChan <- fmt.Sprintf("ERROR: %v", err)
-//
-//					break
-//				}
-//			}
-//
-//			parts := strings.Split(string(data), "\n")
-//
-//			currentLine += parts[0]
-//
-//			if len(parts) == 2 {
-//				linesChan <- currentLine
-//				currentLine = parts[1]
-//			}
-//		}
-//	}()
-//
-//	return linesChan
-//}
