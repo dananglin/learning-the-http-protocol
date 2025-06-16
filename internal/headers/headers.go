@@ -16,7 +16,7 @@ func NewHeaders() Headers {
 
 const (
 	crlf                 string = "\r\n"
-	headerValidationRule string = `^ *[^\s]*: *[^\s]* *$`
+	headerValidationRule string = "^ *[A-z0-9!#$%&'*+.^_`|~-]*: *[^\\s]* *$"
 )
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
@@ -53,7 +53,12 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		)
 	}
 
-	h[key] = value
+	headerVal, ok := h[key]
+	if !ok {
+		h[key] = value
+	} else {
+		h[key] = headerVal + ", " + value
+	}
 
 	return len([]byte(header)) + len([]byte(crlf)), false, nil
 }
@@ -78,7 +83,7 @@ func extractHeader(header string) (key string, value string, err error) {
 		)
 	}
 
-	key = strings.TrimSpace(parts[0])
+	key = strings.TrimSpace(strings.ToLower(parts[0]))
 	value = strings.TrimSpace(parts[1])
 
 	return key, value, err

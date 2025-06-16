@@ -6,11 +6,14 @@ import (
 	"io"
 	"strings"
 	"unicode"
+
+	"http-from-tcp/internal/headers"
 )
 
 const (
 	supportedHttpVersion string = "HTTP/1.1"
 	crlf                 string = "\r\n"
+	endOfHeaders         string = crlf + crlf
 	bufferSize           int    = 8
 )
 
@@ -18,11 +21,13 @@ type requestState int
 
 const (
 	requestStateInitialiased = iota
+	requestStateParsingHeaders
 	requestStateDone
 )
 
 type Request struct {
 	RequestLine RequestLine
+	Headers     headers.Headers
 	state       requestState
 }
 
@@ -34,6 +39,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		state: requestStateInitialiased,
 	}
 
+ProcessRequest:
 	for request.state != requestStateDone {
 		// Increase the size of the buffer if it is full.
 		if readToIndex >= cap(buf) {
@@ -45,9 +51,14 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		sizeOfRead, err := reader.Read(buf[readToIndex:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				// request.state = requestStateDone
-
-				break
+				switch request.state {
+				case requestStateInitialiased:
+					return nil, incompleteRequestLineError{}
+				case requestStateParsingHeaders:
+					return nil, incompleteHeadersLineError{}
+				default:
+					break ProcessRequest
+				}
 			}
 
 			return nil, fmt.Errorf("error reading the data: %w", err)
@@ -75,10 +86,14 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
-	if r.state == requestStateInitialiased {
+	switch r.state {
+	case requestStateInitialiased:
 		parsed, sizeOfParsed, err := parseRequestLine(string(data))
 		if err != nil {
-			return 0, fmt.Errorf("request parsing error: %w", err)
+			return 0, fmt.Errorf(
+				"error parsing the request line from the request: %w",
+				err,
+			)
 		}
 
 		// More data is needed from the requester.
@@ -86,19 +101,40 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 
-		// Update the state and add the parsed request line to r.
+		// Add the parsed request line to r and
+		// update the state to indicate that the next thing to parse are
+		// the headers.
 		r.RequestLine = parsed
-		r.state = requestStateDone
+		r.state = requestStateParsingHeaders
 
 		// Return the size (in bytes) of the original request line that was parsed.
 		return sizeOfParsed, nil
-	}
+	case requestStateParsingHeaders:
+		headers, sizeOfParsed, err := parseHeaders(data)
+		if err != nil {
+			return 0, fmt.Errorf(
+				"error parsing the headers from the request: %w",
+				err,
+			)
+		}
 
-	if r.state == requestStateDone {
-		return 0, fmt.Errorf("request parsing error: attempt to read data in a done state")
-	}
+		// More data is needed from the requester.
+		if sizeOfParsed == 0 {
+			return 0, nil
+		}
 
-	return 0, fmt.Errorf("request parsing error: unknown state")
+		// Add the parsed headers to r and
+		// update the state to indicate that we are done parsing (NOTE: for now)
+		r.Headers = headers
+		r.state = requestStateDone
+
+		// Return the size (in bytes) of the original headers line that was parsed.
+		return sizeOfParsed, nil
+	case requestStateDone:
+		return 0, errors.New("request parsing error: attempt to read data in a done state")
+	default:
+		return 0, errors.New("request parsing error: unknown state")
+	}
 }
 
 type RequestLine struct {
@@ -151,6 +187,35 @@ func parseRequestLine(req string) (RequestLine, int, error) {
 		},
 		len([]byte(reqLine)) + len([]byte(crlf)),
 		nil
+}
+
+func parseHeaders(data []byte) (headers.Headers, int, error) {
+	if !strings.Contains(string(data), endOfHeaders) {
+		// More data required.
+		return headers.Headers{}, 0, nil
+	}
+
+	var (
+		reqHeaders        = headers.NewHeaders()
+		totalSizeOfParsed = 0
+	)
+
+	for {
+		sizeOfParsed, done, err := reqHeaders.Parse(data[totalSizeOfParsed:])
+		if err != nil {
+			return headers.Headers{}, 0, fmt.Errorf("header parsing error: %w", err)
+		}
+
+		if done {
+			// No headers were parsed if this is set to true,
+			// so just break out of the loop.
+			break
+		}
+
+		totalSizeOfParsed += sizeOfParsed
+	}
+
+	return reqHeaders, totalSizeOfParsed + len([]byte(crlf)), nil
 }
 
 // increaseBufferSize returns a buffer that is double the capacity of the

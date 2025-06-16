@@ -45,3 +45,15 @@ func (e unsupportedHTTPVersionError) Error() string {
 		", got " +
 		e.gotVersion
 }
+
+type incompleteHeadersLineError struct{}
+
+func (e incompleteHeadersLineError) Error() string {
+	return "the HEADERS LINE appears to be incomplete or missing"
+}
+
+type incompleteRequestLineError struct{}
+
+func (e incompleteRequestLineError) Error() string {
+	return "the REQUEST LINE appears to be incomplete or missing"
+}
