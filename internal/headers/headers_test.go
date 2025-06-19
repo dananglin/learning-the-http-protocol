@@ -15,7 +15,7 @@ func TestHeaders(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "localhost:42069", headers.Get("Host"))
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
@@ -23,7 +23,7 @@ func TestHeaders(t *testing.T) {
 	data = []byte("  User-Agent:     curl/8.13.0      \r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
-	assert.Equal(t, "curl/8.13.0", headers["user-agent"])
+	assert.Equal(t, "curl/8.13.0", headers.Get("user-agent"))
 	assert.Equal(t, 37, n)
 	assert.False(t, done)
 
@@ -31,9 +31,9 @@ func TestHeaders(t *testing.T) {
 	data = []byte("Content-Type: application/json\r\n  Content-Length:  22  \r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
-	assert.Equal(t, "curl/8.13.0", headers["user-agent"])
-	assert.Equal(t, "application/json", headers["content-type"])
-	assert.Equal(t, "", headers["content-length"])
+	assert.Equal(t, "curl/8.13.0", headers.Get("user-agent"))
+	assert.Equal(t, "application/json", headers.Get("content-type"))
+	assert.Equal(t, "", headers.Get("content-length"))
 	assert.Equal(t, 32, n)
 	assert.False(t, done)
 
@@ -49,7 +49,7 @@ func TestHeaders(t *testing.T) {
 	data = []byte("Set-Person: tj-loves-ocaml\r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
-	assert.Equal(t, "lane-loves-go, prime-loves-zig, tj-loves-ocaml", headers["set-person"])
+	assert.Equal(t, "lane-loves-go, prime-loves-zig, tj-loves-ocaml", headers.Get("set-person"))
 	assert.Equal(t, 28, n)
 	assert.False(t, done)
 

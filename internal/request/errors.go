@@ -57,3 +57,9 @@ type incompleteRequestLineError struct{}
 func (e incompleteRequestLineError) Error() string {
 	return "the REQUEST LINE appears to be incomplete or missing"
 }
+
+type incompleteBodyError struct{}
+
+func (e incompleteBodyError) Error() string {
+	return "the BODY of the request appears to be incomplete or missing"
+}

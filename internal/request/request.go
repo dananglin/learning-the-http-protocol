@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -22,13 +23,16 @@ type requestState int
 const (
 	requestStateInitialiased = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
 	requestStateDone
 )
 
 type Request struct {
-	RequestLine RequestLine
-	Headers     headers.Headers
-	state       requestState
+	RequestLine   RequestLine
+	Headers       headers.Headers
+	Body          []byte
+	state         requestState
+	contentLength int
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
@@ -36,6 +40,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	readToIndex := 0
 
 	request := Request{
+		Body:  make([]byte, 0),
 		state: requestStateInitialiased,
 	}
 
@@ -56,6 +61,8 @@ ProcessRequest:
 					return nil, incompleteRequestLineError{}
 				case requestStateParsingHeaders:
 					return nil, incompleteHeadersLineError{}
+				case requestStateParsingBody:
+					return nil, incompleteBodyError{}
 				default:
 					break ProcessRequest
 				}
@@ -68,12 +75,13 @@ ProcessRequest:
 		readToIndex = readToIndex + sizeOfRead
 
 		// Now try and parse the data and note the size of the data that has been parsed (if parsed).
-		sizeOfParsed, err := request.parse(buf)
+		sizeOfParsed, err := request.parse(buf[:readToIndex])
 		if err != nil {
 			return nil, fmt.Errorf("error parsing the data: %w", err)
 		}
 
-		// If the data has not been parsed, re-loop so that we can read more data into the buffer.
+		// If the data has not been parsed, re-loop so that we can read more data into the buffer
+		// if the state has not been changed to DONE.
 		if sizeOfParsed == 0 {
 			continue
 		}
@@ -81,6 +89,8 @@ ProcessRequest:
 		buf = clearParsedData(buf, sizeOfParsed)
 		readToIndex = readToIndex - sizeOfParsed
 	}
+
+	fmt.Println("The entire length of the data has been consumed!")
 
 	return &request, nil
 }
@@ -123,13 +133,55 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, nil
 		}
 
-		// Add the parsed headers to r and
-		// update the state to indicate that we are done parsing (NOTE: for now)
+		// Add the parsed headers to r.
 		r.Headers = headers
-		r.state = requestStateDone
+
+		// Update the state depending on the content-length header.
+		contentLengthStr := r.Headers.Get("Content-Length")
+		if contentLengthStr == "" {
+			r.state = requestStateDone
+
+			return sizeOfParsed, nil
+		}
+
+		contentLength, err := strconv.Atoi(contentLengthStr)
+		if err != nil {
+			return 0, fmt.Errorf(
+				"error parsing the body: error retrieving the content length: %w",
+				err,
+			)
+		}
+
+		if contentLength < 1 {
+			r.state = requestStateDone
+
+			return sizeOfParsed, nil
+		}
+
+		r.state = requestStateParsingBody
+		r.contentLength = contentLength
 
 		// Return the size (in bytes) of the original headers line that was parsed.
 		return sizeOfParsed, nil
+	case requestStateParsingBody:
+		sizeOfData := len(data)
+
+		switch {
+		case sizeOfData > r.contentLength:
+			return 0, fmt.Errorf(
+				"unexpected size of the request body found: want %d, got %d",
+				r.contentLength,
+				sizeOfData,
+			)
+		case sizeOfData == r.contentLength:
+			r.Body = data
+			r.state = requestStateDone
+
+			return sizeOfData, nil
+		default:
+			// More data is needed for the request body
+			return 0, nil
+		}
 	case requestStateDone:
 		return 0, errors.New("request parsing error: attempt to read data in a done state")
 	default:

@@ -63,6 +63,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	return len([]byte(header)) + len([]byte(crlf)), false, nil
 }
 
+func (h Headers) Get(key string) string {
+	return h[strings.ToLower(key)]
+}
+
 func validateHeader(header string) error {
 	pattern := regexp.MustCompile(headerValidationRule)
 
