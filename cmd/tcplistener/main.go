@@ -58,6 +58,8 @@ func run() error {
 			}
 		}
 
+		result += fmt.Sprintf("Body:\n%s", string(req.Body))
+
 		fmt.Println(result)
 
 		fmt.Println("Connection closed.")
