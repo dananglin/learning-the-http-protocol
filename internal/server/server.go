@@ -6,15 +6,19 @@ import (
 	"net"
 	"sync/atomic"
 
+	"http-from-tcp/internal/request"
 	"http-from-tcp/internal/response"
 )
+
+type Handler func(w *response.Writer, req *request.Request)
 
 type Server struct {
 	listener net.Listener
 	closed   *atomic.Bool
+	handler  Handler
 }
 
-func Serve(port int) (*Server, error) {
+func Serve(port int, handler Handler) (*Server, error) {
 	address := fmt.Sprintf("localhost:%d", port)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -27,6 +31,7 @@ func Serve(port int) (*Server, error) {
 	server := Server{
 		listener: listener,
 		closed:   &closed,
+		handler:  handler,
 	}
 
 	go server.listen()
@@ -61,20 +66,21 @@ func (s *Server) listen() {
 
 		slog.Info("Connection accepted.")
 
-		s.handle(conn)
+		go s.handle(conn)
 	}
 }
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
-	headers := response.GetDefaultHeaders(0)
+	req, err := request.RequestFromReader(conn)
+	if err != nil {
+		slog.Error("error parsing the request.", "error", err.Error())
 
-	if err := response.WriteStatusLine(conn, response.StatusCodeOK); err != nil {
-		slog.Error("error writing the status line.", "error", err.Error())
+		return
 	}
 
-	if err := response.WriteHeaders(conn, headers); err != nil {
-		slog.Error("error writing the headers.", "error", err.Error())
-	}
+	resp := response.NewWriter(conn)
+
+	s.handler(resp, req)
 }

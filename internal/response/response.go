@@ -1,6 +1,7 @@
 package response
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -16,34 +17,55 @@ const (
 	StatusCodeServerError StatusCode = 500
 )
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
+type writerState int
+
+const (
+	writerStateInitialised = iota
+	writerStateHeaders
+	writerStateBody
+)
+
+type Writer struct {
+	writer io.Writer
+	state  writerState
+}
+
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
+		writer: w,
+		state:  writerStateInitialised,
+	}
+}
+
+func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
+	if w.state != writerStateInitialised {
+		return errors.New("the response writer is not in the correct state to write the status line")
+	}
+
 	statuses := map[StatusCode]string{
 		StatusCodeOK:          "HTTP/1.1 200 OK",
 		StatusCodeBadRequest:  "HTTP/1.1 400 Bad Request",
 		StatusCodeServerError: "HTTP/1.1 500 Internal Server Error",
 	}
 
-	_, err := w.Write([]byte(statuses[statusCode] + "\n"))
+	_, err := w.writer.Write([]byte(statuses[statusCode] + "\n"))
 	if err != nil {
 		return fmt.Errorf("error writing the status line: %w", err)
 	}
 
+	w.state = writerStateHeaders
+
 	return nil
 }
 
-func GetDefaultHeaders(contentLen int) headers.Headers {
-	headers := headers.NewHeaders()
-	headers["Content-Length"] = strconv.Itoa(contentLen)
-	headers["Connection"] = "close"
-	headers["Content-Type"] = "text/plain"
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+	if w.state != writerStateHeaders {
+		return errors.New("the response writer is not in the correct state to write the headers")
+	}
 
-	return headers
-}
-
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
 	for key, value := range headers {
 		header := key + ": " + value + "\n"
-		_, err := w.Write([]byte(header))
+		_, err := w.writer.Write([]byte(header))
 		if err != nil {
 			return fmt.Errorf(
 				"error writing the header %q: %w",
@@ -53,7 +75,32 @@ func WriteHeaders(w io.Writer, headers headers.Headers) error {
 		}
 	}
 
-	w.Write([]byte("\n"))
+	_, err := w.writer.Write([]byte("\n"))
+	if err != nil {
+		return fmt.Errorf(
+			"error writing the final CRLF: %w",
+			err,
+		)
+	}
+
+	w.state = writerStateBody
 
 	return nil
+}
+
+func (w *Writer) WriteBody(p []byte) (int, error) {
+	if w.state != writerStateBody {
+		return 0, errors.New("the response writer is not in the correct state to write the body")
+	}
+
+	return w.writer.Write(p)
+}
+
+func GetDefaultHeaders(contentLen int) headers.Headers {
+	headers := headers.NewHeaders()
+	headers["Content-Length"] = strconv.Itoa(contentLen)
+	headers["Connection"] = "close"
+	headers["Content-Type"] = "text/plain"
+
+	return headers
 }

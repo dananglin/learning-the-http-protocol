@@ -67,6 +67,13 @@ func (h Headers) Get(key string) string {
 	return h[strings.ToLower(key)]
 }
 
+func (h Headers) Override(key, value string) {
+	_, exists := h[key]
+	if exists {
+		h[key] = value
+	}
+}
+
 func validateHeader(header string) error {
 	pattern := regexp.MustCompile(headerValidationRule)
 
