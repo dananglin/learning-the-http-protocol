@@ -47,7 +47,7 @@ func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
 		StatusCodeServerError: "HTTP/1.1 500 Internal Server Error",
 	}
 
-	_, err := w.writer.Write([]byte(statuses[statusCode] + "\n"))
+	_, err := w.writer.Write([]byte(statuses[statusCode] + "\r\n"))
 	if err != nil {
 		return fmt.Errorf("error writing the status line: %w", err)
 	}
@@ -63,7 +63,7 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error {
 	}
 
 	for key, value := range headers {
-		header := key + ": " + value + "\n"
+		header := key + ": " + value + "\r\n"
 		_, err := w.writer.Write([]byte(header))
 		if err != nil {
 			return fmt.Errorf(
@@ -74,7 +74,7 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error {
 		}
 	}
 
-	_, err := w.writer.Write([]byte("\n"))
+	_, err := w.writer.Write([]byte("\r\n"))
 	if err != nil {
 		return fmt.Errorf(
 			"error writing the final CRLF: %w",

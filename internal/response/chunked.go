@@ -2,14 +2,14 @@ package response
 
 import "errors"
 
-const chunkedBodyDone string = "0\n\n"
+const chunkedBodyDone string = "0\r\n\r\n"
 
 func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 	if w.state != writerStateBody {
 		return 0, errors.New("the response writer is not in the correct state to write the body")
 	}
 
-	data := string(p) + "\n"
+	data := string(p) + "\r\n"
 
 	return w.writer.Write([]byte(data))
 }
