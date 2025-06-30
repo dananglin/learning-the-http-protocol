@@ -22,6 +22,7 @@ const (
 	writerStateInitialised = iota
 	writerStateHeaders
 	writerStateBody
+	writerStateTrailers
 )
 
 type Writer struct {

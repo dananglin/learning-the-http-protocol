@@ -11,6 +11,7 @@ const (
 	HeaderContentType      = "Content-Type"
 	HeaderConnection       = "Connection"
 	HeaderTransferEncoding = "Transfer-Encoding"
+	HeaderTrailer          = "Trailer"
 )
 
 // GetDefaultHeaders returns the default response headers.

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"html/template"
@@ -199,6 +200,8 @@ func proxyHandler(w *response.Writer, req *request.Request, baseURL string) {
 	headers.Delete(response.HeaderContentLength)
 	headers.Delete(response.HeaderConnection)
 	headers.Add(response.HeaderTransferEncoding, "chunked")
+	headers.Add(response.HeaderTrailer, "X-Content-SHA256")
+	headers.Add(response.HeaderTrailer, "X-Content-Length")
 
 	if err := w.WriteHeaders(headers); err != nil {
 		slog.Error("error writing the headers", "error", err.Error())
@@ -206,6 +209,7 @@ func proxyHandler(w *response.Writer, req *request.Request, baseURL string) {
 		return
 	}
 
+	fullResp := make([]byte, 0)
 	buf := make([]byte, 1024, 1024)
 
 ResponseReadLoop:
@@ -246,12 +250,29 @@ ResponseReadLoop:
 				err.Error(),
 			)
 		}
+
+		fullResp = append(fullResp, buf[:n]...)
 	}
 
 	_, err = w.WriteChunkedBodyDone()
 	if err != nil {
 		slog.Error(
 			"error writing the end of the chunked body response body",
+			"error",
+			err.Error(),
+		)
+
+		return
+	}
+
+	contentSum := sha256.Sum256(fullResp)
+
+	headers.Add("X-Content-SHA256", fmt.Sprintf("%x", contentSum))
+	headers.Add("X-Content-Length", strconv.Itoa(len(fullResp)))
+
+	if err := w.WriteTrailers(headers); err != nil {
+		slog.Error(
+			"error writing the trailers",
 			"error",
 			err.Error(),
 		)
