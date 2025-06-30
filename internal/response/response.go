@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 
 	"http-from-tcp/internal/headers"
 )
@@ -94,13 +93,4 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 	}
 
 	return w.writer.Write(p)
-}
-
-func GetDefaultHeaders(contentLen int) headers.Headers {
-	headers := headers.NewHeaders()
-	headers["Content-Length"] = strconv.Itoa(contentLen)
-	headers["Connection"] = "close"
-	headers["Content-Type"] = "text/plain"
-
-	return headers
 }

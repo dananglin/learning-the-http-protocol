@@ -53,12 +53,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		)
 	}
 
-	headerVal, ok := h[key]
-	if !ok {
-		h[key] = value
-	} else {
-		h[key] = headerVal + ", " + value
-	}
+	h.Add(key, value)
 
 	return len([]byte(header)) + len([]byte(crlf)), false, nil
 }
@@ -67,11 +62,24 @@ func (h Headers) Get(key string) string {
 	return h[strings.ToLower(key)]
 }
 
-func (h Headers) Override(key, value string) {
+func (h Headers) Edit(key, value string) {
 	_, exists := h[key]
 	if exists {
 		h[key] = value
 	}
+}
+
+func (h Headers) Add(key, value string) {
+	existingVal, exists := h[key]
+	if !exists {
+		h[key] = value
+	} else {
+		h[key] = existingVal + ", " + value
+	}
+}
+
+func (h Headers) Delete(key string) {
+	delete(h, key)
 }
 
 func validateHeader(header string) error {

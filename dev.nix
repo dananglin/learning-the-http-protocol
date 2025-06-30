@@ -1,5 +1,5 @@
 let
-  commit_ref = "70c74b02eac46f4e4aa071e45a6189ce0f6d9265";
+  commit_ref = "a676066377a2fe7457369dd37c31fd2263b662f4";
   nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/${commit_ref}";
   pkgs = import nixpkgs {
     config = { };
