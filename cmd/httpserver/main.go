@@ -75,6 +75,8 @@ func handler(w *response.Writer, req *request.Request) {
 	switch {
 	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/"):
 		proxyHandler(w, req, "https://httpbin.org")
+	case req.RequestLine.RequestTarget == "/video":
+		videoHandler(w)
 	default:
 		serverHandler(w, req.RequestLine.RequestTarget)
 	}
@@ -276,6 +278,41 @@ ResponseReadLoop:
 			"error",
 			err.Error(),
 		)
+
+		return
+	}
+}
+
+func videoHandler(w *response.Writer) {
+	data, err := os.ReadFile("assets/vim.mp4")
+	if err != nil {
+		slog.Error(
+			"error reading the video file",
+			"error",
+			err.Error(),
+		)
+
+		return
+	}
+
+	if err := w.WriteStatusLine(response.StatusCodeOK); err != nil {
+		slog.Error("error writing the status line", "error", err.Error())
+
+		return
+	}
+
+	headers := response.GetDefaultHeaders(len(data))
+	headers.Edit("Content-Type", "video/mp4")
+
+	if err := w.WriteHeaders(headers); err != nil {
+		slog.Error("error writing the headers", "error", err.Error())
+
+		return
+	}
+
+	_, err = w.WriteBody(data)
+	if err != nil {
+		slog.Error("error writing the response body", "error", err.Error())
 
 		return
 	}
