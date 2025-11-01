@@ -1,5 +1,7 @@
 let
-  commit_ref = "a676066377a2fe7457369dd37c31fd2263b662f4";
+  # Branch: nixos-unstable
+  # Date of commit: 2025-10-31
+  commit_ref = "2fb006b87f04c4d3bdf08cfdbc7fab9c13d94a15";
   nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/${commit_ref}";
   pkgs = import nixpkgs {
     config = { };
@@ -14,7 +16,7 @@ pkgs.mkShellNoCC {
     gopls
   ];
 
-  TMUX_SESSION = "bootdev-http-protocol";
+  TMUX_SESSION = "Learn the HTTP Protocol";
 
   shellHook = ''
     export GOROOT=$( which go | xargs dirname | xargs dirname )/share/go
